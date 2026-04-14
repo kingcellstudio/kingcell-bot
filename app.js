@@ -5,7 +5,18 @@ const app = express();
 app.use(express.json());
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL;
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+const conversations = {};
+
+const SYSTEM_PROMPT = `Sos el asistente virtual de KingCell, tienda de celulares en Colón, Montevideo, Uruguay. Atendés clientes interesados en comprar iPhones semi nuevos. Hablá como un amigo que sabe de celulares, en español rioplatense, mensajes cortos y sin negritas ni asteriscos.
+
+STOCK: iPhone SE 128GB $7.000, iPhone XR 64GB $8.490, iPhone 11 64GB $9.990 (negro y blanco), iPhone 12 Pro 256GB $17.490, iPhone 13 256GB $16.790, iPhone 13 Pro 256GB $18.000, iPhone 14 128GB $19.590. Todos semi nuevos, liberados, con garantía.
+
+CON TARJETA (12% extra): SE $7.840, XR $9.509, 11 $11.189, 12Pro $19.589, 13 $18.805, 13Pro $20.160, 14 $21.941.
+
+Efectivo o transferencia sin recargo. WhatsApp: 097 129 277. Local en Colón, Montevideo.`;
 
 app.get('/webhook', (req, res) => {
   if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
@@ -15,13 +26,48 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-app.post('/webhook', (req, res) => {
+app.post('/webhook', async (req, res) => {
   const body = req.body;
-  if (body.object === 'page' || body.object === 'instagram') {
-    axios.post(MAKE_WEBHOOK_URL, body).catch(console.error);
-    res.sendStatus(200);
-  } else {
-    res.sendStatus(404);
+  res.sendStatus(200);
+
+  if (body.object === 'page') {
+    for (const entry of body.entry) {
+      const event = entry.messaging?.[0];
+      if (!event || !event.message || event.message.is_echo) continue;
+
+      const senderId = event.sender.id;
+      const text = event.message.text;
+      if (!text) continue;
+
+      if (!conversations[senderId]) conversations[senderId] = [];
+      conversations[senderId].push({ role: 'user', content: text });
+
+      try {
+        const response = await axios.post('https://api.anthropic.com/v1/messages', {
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          system: SYSTEM_PROMPT,
+          messages: conversations[senderId]
+        }, {
+          headers: {
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json'
+          }
+        });
+
+        const reply = response.data.content[0].text;
+        conversations[senderId].push({ role: 'assistant', content: reply });
+
+        await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
+          recipient: { id: senderId },
+          message: { text: reply }
+        });
+
+      } catch (err) {
+        console.error('Error:', err.response?.data || err.message);
+      }
+    }
   }
 });
 

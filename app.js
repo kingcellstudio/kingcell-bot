@@ -48,7 +48,7 @@ app.post('/webhook', async (req, res) => {
 
       // Si no viene de la campaña de iPhones y no es conversación iniciada, ignorar completamente
       if (!isFromCampaign && !isExistingConversation) {
-        console.log(`Mensaje ignorado de ${senderId} — no viene de la campaña de iPhones`);
+        console.log(`Mensaje ignorado de ${senderId} — campaign_id recibido: ${campaignId}`);
         continue;
       }
 

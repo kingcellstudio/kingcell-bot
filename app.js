@@ -42,13 +42,16 @@ app.post('/webhook', async (req, res) => {
       const text = event.message.text;
       if (!text) continue;
 
+      console.log('Datos del evento:', JSON.stringify(event));
+
       const campaignId = event.message?.referral?.campaign_id || event.referral?.campaign_id || '';
       const isFromCampaign = CAMPAIGN_IDS.includes(campaignId);
       const isExistingConversation = conversations[senderId];
 
-      // Si no viene de la campaña de iPhones y no es conversación iniciada, ignorar completamente
+      console.log(`campaign_id recibido: "${campaignId}" — isFromCampaign: ${isFromCampaign}`);
+
       if (!isFromCampaign && !isExistingConversation) {
-        console.log(`Mensaje ignorado de ${senderId} — campaign_id recibido: ${campaignId}`);
+        console.log(`Mensaje ignorado de ${senderId} — no viene de la campaña de iPhones`);
         continue;
       }
 

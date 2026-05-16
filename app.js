@@ -75,6 +75,7 @@ async function getClaudeResponse(subscriberId, userMessage) {
 }
 
 app.post('/manychat', async (req, res) => {
+  console.log('Mensaje recibido de ManyChat:', JSON.stringify(req.body));
   res.sendStatus(200);
 
   const subscriberId = req.body.id;

@@ -93,7 +93,6 @@ app.post('/manychat', async (req, res) => {
       data: {
         version: 'v2',
         content: {
-          type: 'instagram',
           messages: [{ type: 'text', text: reply }]
         }
       }

@@ -97,7 +97,7 @@ app.post('/manychat', async (req, res) => {
           messages: [{ type: 'text', text: reply }]
         }
       },
-      message_tag: 'NON_PROMOTIONAL_SUBSCRIPTION'
+      message_tag: 'ACCOUNT_UPDATE'
     }, {
       headers: {
         'Authorization': `Bearer ${MANYCHAT_API_KEY}`,

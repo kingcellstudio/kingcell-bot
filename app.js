@@ -96,14 +96,15 @@ app.post('/manychat', async (req, res) => {
           type: 'instagram',
           messages: [{ type: 'text', text: reply }]
         }
-      },
-      message_tag: 'ACCOUNT_UPDATE'
+      }
     }, {
       headers: {
         'Authorization': `Bearer ${MANYCHAT_API_KEY}`,
         'Content-Type': 'application/json'
       }
     });
+
+    console.log('Mensaje enviado correctamente a ManyChat');
 
   } catch (err) {
     console.error('Error completo:', JSON.stringify(err.response?.data));

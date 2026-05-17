@@ -86,6 +86,7 @@ app.post('/manychat', async (req, res) => {
 
   try {
     const reply = await getClaudeResponse(subscriberId, userMessage);
+    console.log('Respuesta de Claude:', reply);
 
     await axios.post('https://api.manychat.com/fb/sending/sendContent', {
       subscriber_id: subscriberId,
@@ -105,7 +106,7 @@ app.post('/manychat', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error:', err.response?.data || err.message);
+    console.error('Error completo:', JSON.stringify(err.response?.data));
   }
 });
 

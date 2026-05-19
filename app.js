@@ -7,6 +7,8 @@ app.use(express.urlencoded({ extended: true }));
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const MANYCHAT_API_KEY = process.env.MANYCHAT_API_KEY;
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
 const conversations = {};
 
@@ -15,13 +17,12 @@ const SYSTEM_PROMPT = `Sos el asistente virtual de KingCell, tienda de celulares
 TONO Y ESTILO:
 - Hablá como un amigo que sabe de celulares, en español rioplatense natural
 - Mensajes cortos, directos, como WhatsApp real
-- NUNCA uses negritas, asteriscos, ni emojis en exceso
-- NUNCA hagas listas con guiones, escribí todo en forma conversacional
+- NUNCA uses negritas, asteriscos, ni listas con guiones
+- Escribí todo en forma conversacional
 - Máximo 3-4 líneas por mensaje
 
 PARA CONSULTAR PRECIOS Y STOCK:
-- Buscá directamente en: https://kingcelluy.wixsite.com/kingcell/online-store
-- También probá buscar: "kingcell.uy iphone precio"
+- Buscá en: https://kingcelluy.wixsite.com/kingcell/online-store
 - Si no encontrás el precio exacto, usá esta lista de referencia:
   iPhone SE 128GB $7.000, XR 64GB $8.490, 11 64GB $9.990, 12 Pro 256GB $17.490, 13 256GB $16.790, 13 Pro 256GB $18.000, 14 128GB $19.590
 - Todos semi nuevos, liberados, con garantía
@@ -88,8 +89,9 @@ async function getClaudeResponse(subscriberId, userMessage) {
   return reply;
 }
 
+// Endpoint para ManyChat (primer mensaje)
 app.post('/manychat', async (req, res) => {
-  console.log('Mensaje recibido de ManyChat:', JSON.stringify(req.body));
+  console.log('Mensaje recibido de ManyChat:', req.body.last_input_text);
   res.sendStatus(200);
 
   const subscriberId = req.body.id;
@@ -99,7 +101,7 @@ app.post('/manychat', async (req, res) => {
 
   try {
     const reply = await getClaudeResponse(subscriberId, userMessage);
-    console.log('Respuesta de Claude:', reply);
+    console.log('Respuesta de Claude (ManyChat):', reply);
 
     await axios.post('https://api.manychat.com/fb/sending/sendContent', {
       subscriber_id: subscriberId,
@@ -119,7 +121,49 @@ app.post('/manychat', async (req, res) => {
     console.log('Mensaje enviado correctamente a ManyChat');
 
   } catch (err) {
-    console.error('Error completo:', JSON.stringify(err.response?.data));
+    console.error('Error ManyChat:', JSON.stringify(err.response?.data));
+  }
+});
+
+// Endpoint para Meta webhook (verificación y mensajes siguientes)
+app.get('/webhook', (req, res) => {
+  if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
+    res.send(req.query['hub.challenge']);
+  } else {
+    res.sendStatus(403);
+  }
+});
+
+app.post('/webhook', async (req, res) => {
+  const body = req.body;
+  res.sendStatus(200);
+
+  if (body.object === 'page') {
+    for (const entry of body.entry) {
+      const event = entry.messaging?.[0];
+      if (!event || !event.message || event.message.is_echo) continue;
+
+      const senderId = event.sender.id;
+      const text = event.message.text;
+      if (!text) continue;
+
+      console.log('Mensaje recibido de Meta webhook:', text);
+
+      try {
+        const reply = await getClaudeResponse(senderId, text);
+        console.log('Respuesta de Claude (webhook):', reply);
+
+        await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
+          recipient: { id: senderId },
+          message: { text: reply }
+        });
+
+        console.log('Mensaje enviado correctamente via Meta');
+
+      } catch (err) {
+        console.error('Error webhook Meta:', err.response?.data || err.message);
+      }
+    }
   }
 });
 
